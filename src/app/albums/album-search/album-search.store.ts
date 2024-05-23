@@ -12,23 +12,26 @@ import {
   withRequestStatus
 } from "@/shared/state/request-status.feature";
 import {setAllEntities, withEntities} from "@ngrx/signals/entities";
+import {withQueryParams} from "@/shared/state/route/query-params.feature";
 
 export const AlbumSearchStore = signalStore(
   withState<AlbumSearchState>({
     query: '',
     order: 'asc'
   }),
-  withEntities<Album>(),
+  withEntities({
+    collection: 'album',
+    entity: type<Album>()
+  }),
   withRequestStatus(),
   withComputed((state) => {
     const filteredAlbums = computed(() => {
-      console.log('my state', state);
-      const searchedAlbums = searchAlbums(state.entities(), state.query());
+      const searchedAlbums = searchAlbums(state.albumEntities(), state.query());
 
       return sortAlbums(searchedAlbums, state.order());
     });
     const totalAlbums = computed(() => filteredAlbums().length);
-    const showSpinner = computed(() => state.isPending() && state.entities().length === 0)
+    const showSpinner = computed(() => state.isPending() && state.albumEntities().length === 0)
 
     return {
       filteredAlbums,
@@ -57,17 +60,17 @@ export const AlbumSearchStore = signalStore(
         rxMethod<void>(
           pipe(
             tap(() => state.setRequestStatusPending()),
-          exhaustMap(() => albumsService.getAll().pipe(
-            tapResponse({
-              next: albums => {
-                state.setRequestStatusCompleted();
-                patchState(state, setAllEntities(albums))
-              },
-              error: (error: {
-                message: string
-              }) => state.setRequestStatusError(error.message)
-            })
-          )),
+            exhaustMap(() => albumsService.getAll().pipe(
+              tapResponse({
+                next: albums => {
+                  state.setRequestStatusCompleted();
+                  patchState(state, setAllEntities(albums, { collection: 'album' }))
+                },
+                error: (error: {
+                  message: string
+                }) => state.setRequestStatusError(error.message)
+              })
+            )),
           )
         ),
     }

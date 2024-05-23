@@ -1,7 +1,7 @@
-import {patchState, signalStore, withComputed, withHooks, withMethods, withState} from "@ngrx/signals";
+import {patchState, signalStore, type, withComputed, withHooks, withMethods, withState} from "@ngrx/signals";
 import {AlbumSearchState} from "@/albums/album-search/models/album-search.models";
 import {computed, inject} from "@angular/core";
-import {searchAlbums, sortAlbums} from "@/albums/album.model";
+import {Album, searchAlbums, sortAlbums} from "@/albums/album.model";
 import {SortOrder} from "@/shared/models/sort-order.model";
 import {rxMethod} from "@ngrx/signals/rxjs-interop";
 import {exhaustMap, filter, pipe, tap} from "rxjs";
@@ -11,22 +11,24 @@ import {MatSnackBar} from "@angular/material/snack-bar";
 import {
   withRequestStatus
 } from "@/shared/state/request-status.feature";
+import {setAllEntities, withEntities} from "@ngrx/signals/entities";
 
 export const AlbumSearchStore = signalStore(
   withState<AlbumSearchState>({
-    albums: [],
     query: '',
     order: 'asc'
   }),
+  withEntities<Album>(),
   withRequestStatus(),
   withComputed((state) => {
     const filteredAlbums = computed(() => {
-      const searchedAlbums = searchAlbums(state.albums(), state.query());
+      console.log('my state', state);
+      const searchedAlbums = searchAlbums(state.entities(), state.query());
 
       return sortAlbums(searchedAlbums, state.order());
     });
     const totalAlbums = computed(() => filteredAlbums().length);
-    const showSpinner = computed(() => state.isPending() && state.albums.length === 0)
+    const showSpinner = computed(() => state.isPending() && state.entities().length === 0)
 
     return {
       filteredAlbums,
@@ -58,8 +60,8 @@ export const AlbumSearchStore = signalStore(
           exhaustMap(() => albumsService.getAll().pipe(
             tapResponse({
               next: albums => {
-                state.setRequestStatusCompleted()
-                patchState(state, {albums})
+                state.setRequestStatusCompleted();
+                patchState(state, setAllEntities(albums))
               },
               error: (error: {
                 message: string
